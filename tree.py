@@ -77,35 +77,36 @@ class Diagnoser:
 
     def minimize(self, remove_empty=False):
         def helper(node):
-            if node is None or is_leaf(node):
-                return node
-            
-            # Recursively minimize children
+            if node is None:
+                return None
+
             node.yes_child = helper(node.yes_child)
             node.no_child = helper(node.no_child)
 
-            # Case 1: Remove redundant nodes (if both children lead to the same result)
-            if node.yes_child and node.no_child and node.yes_child.data == node.no_child.data:
-                return node.yes_child  # Replace with any child (since both are identical)
+            # Merge duplicate children if both are leaves with the same diagnosis
+            if is_leaf(node.yes_child) and is_leaf(node.no_child) and node.yes_child.data == node.no_child.data:
+                return Node(node.yes_child.data)  # Merge into a single leaf node
 
-            # Case 2: If remove_empty=True, eliminate paths where one branch is always None
+            # If remove_empty=True, remove nodes that do not add information
             if remove_empty:
-                if is_all_none(node.yes_child):
-                    return node.no_child
-                if is_all_none(node.no_child):
-                    return node.yes_child
+                if node.yes_child and node.yes_child.data is None:
+                    node.yes_child = node.yes_child.yes_child or node.yes_child.no_child
+                if node.no_child and node.no_child.data is None:
+                    node.no_child = node.no_child.yes_child or node.no_child.no_child
 
-            return node  # Keep the current node
+                if node.data is None and (node.yes_child or node.no_child):
+                    return node.yes_child or node.no_child
 
-        def is_all_none(node):
-            """Helper function to check if an entire subtree consists only of None diagnoses."""
-            if node is None:
-                return True
-            if is_leaf(node):
-                return node.data is None
-            return is_all_none(node.yes_child) and is_all_none(node.no_child)
+            return node
 
         self.root = helper(self.root)
+
+
+
+
+
+
+
 
 
 
