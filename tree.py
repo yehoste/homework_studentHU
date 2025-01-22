@@ -11,7 +11,12 @@ class Node:
         self.data = data
         self.yes_child = yes_child
         self.no_child = no_child
+    
 
+
+
+def is_leaf(node):
+    return node is not None and node.yes_child is None and node.no_child is None
 
 def parse_data(filepath):
     records = []
@@ -46,12 +51,12 @@ class Diagnoser:
         illness_count = {}
 
         def traverse(node):
-            if node.positive_child is None and node.negative_child is None:
+            if node.yes_child is None and node.no_child is None:
                 if node.data:
                     illness_count[node.data] = illness_count.get(node.data, 0) + 1
             else:
-                traverse(node.positive_child)
-                traverse(node.negative_child)
+                traverse(node.yes_child)
+                traverse(node.no_child)
 
         traverse(self.root)
         return sorted(illness_count, key=lambda illness: -illness_count[illness])
@@ -60,28 +65,49 @@ class Diagnoser:
         paths = []
 
         def traverse(node, path):
-            if node.positive_child is None and node.negative_child is None:
+            if node.yes_child is None and node.no_child is None:
                 if node.data == illness:
                     paths.append(path)
             else:
-                traverse(node.positive_child, path + [True])
-                traverse(node.negative_child, path + [False])
+                traverse(node.yes_child, path + [True])
+                traverse(node.no_child, path + [False])
 
         traverse(self.root, [])
         return paths
 
     def minimize(self, remove_empty=False):
         def helper(node):
-            if not node or (not node.yes_child and not node.no_child):
+            if node is None or is_leaf(node):
                 return node
+            
+            # Recursively minimize children
             node.yes_child = helper(node.yes_child)
             node.no_child = helper(node.no_child)
+
+            # Case 1: Remove redundant nodes (if both children lead to the same result)
             if node.yes_child and node.no_child and node.yes_child.data == node.no_child.data:
-                return node.yes_child
-            if remove_empty and (not node.yes_child or not node.no_child):
-                return node.yes_child if node.yes_child else node.no_child
-            return node
+                return node.yes_child  # Replace with any child (since both are identical)
+
+            # Case 2: If remove_empty=True, eliminate paths where one branch is always None
+            if remove_empty:
+                if is_all_none(node.yes_child):
+                    return node.no_child
+                if is_all_none(node.no_child):
+                    return node.yes_child
+
+            return node  # Keep the current node
+
+        def is_all_none(node):
+            """Helper function to check if an entire subtree consists only of None diagnoses."""
+            if node is None:
+                return True
+            if is_leaf(node):
+                return node.data is None
+            return is_all_none(node.yes_child) and is_all_none(node.no_child)
+
         self.root = helper(self.root)
+
+
 
 
 
