@@ -76,30 +76,54 @@ class Diagnoser:
         return paths
 
     def minimize(self, remove_empty=False):
-        def helper(node):
-            if node is None:
-                return None
+        def are_subtrees_identical(node1, node2):
+            if node1 is None and node2 is None:
+                return True
+            if node1 is None or node2 is None:
+                return False
+            if is_leaf(node1) and is_leaf(node2):
+                return node1.data == node2.data
+            if is_leaf(node1) or is_leaf(node2):
+                return False
+            return (node1.data == node2.data and 
+                    are_subtrees_identical(node1.yes_child, node2.yes_child) and 
+                    are_subtrees_identical(node1.no_child, node2.no_child))
 
+        def all_paths_lead_to_none(node):
+            if node is None:
+                return True
+            if is_leaf(node):
+                return node.data is None
+            return all_paths_lead_to_none(node.yes_child) and all_paths_lead_to_none(node.no_child)
+
+        def helper(node):
+            if node is None or is_leaf(node):
+                return node
+
+            # Process children first (bottom-up)
             node.yes_child = helper(node.yes_child)
             node.no_child = helper(node.no_child)
 
-            # Merge duplicate children if both are leaves with the same diagnosis
-            if is_leaf(node.yes_child) and is_leaf(node.no_child) and node.yes_child.data == node.no_child.data:
-                return Node(node.yes_child.data)  # Merge into a single leaf node
-
-            # If remove_empty=True, remove nodes that do not add information
+            # For remove_empty=True case
             if remove_empty:
-                if node.yes_child and node.yes_child.data is None:
-                    node.yes_child = node.yes_child.yes_child or node.yes_child.no_child
-                if node.no_child and node.no_child.data is None:
-                    node.no_child = node.no_child.yes_child or node.no_child.no_child
+                if all_paths_lead_to_none(node.yes_child):
+                    return node.no_child
+                if all_paths_lead_to_none(node.no_child):
+                    return node.yes_child
 
-                if node.data is None and (node.yes_child or node.no_child):
-                    return node.yes_child or node.no_child
+            # Check if subtrees are identical
+            if are_subtrees_identical(node.yes_child, node.no_child):
+                # If they're identical, can return either child
+                return node.yes_child
 
             return node
 
-        self.root = helper(self.root)
+        if self.root is not None:
+            # If all paths lead to None and remove_empty is True, replace with single None node
+            if remove_empty and all_paths_lead_to_none(self.root):
+                self.root = Node(None)
+            else:
+                self.root = helper(self.root)
 
 
 
